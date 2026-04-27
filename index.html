@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Organ Care Management System</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#f4f1fb;color:#1f2937}
+.app{display:flex;min-height:100vh}
+.sidebar{width:260px;background:linear-gradient(180deg,#4c1d95,#7e22ce,#be185d);color:white;padding:22px;position:fixed;height:100vh;overflow:auto}
+.logo{font-size:25px;font-weight:800;margin-bottom:22px}
+.logo span{color:#fde047}
+.nav button{width:100%;padding:12px;margin:6px 0;border:none;border-radius:12px;background:rgba(255,255,255,.16);color:white;text-align:left;cursor:pointer;font-size:14px}
+.nav button:hover,.nav button.active{background:white;color:#4c1d95;font-weight:700}
+.main{margin-left:260px;width:calc(100% - 260px);padding:28px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.top h1{color:#4c1d95;margin:0}
+.badge{background:#dcfce7;color:#166534;padding:10px 18px;border-radius:22px;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px}
+.card-count{padding:24px;border-radius:22px;color:white;box-shadow:0 12px 28px rgba(0,0,0,.14)}
+.card-count h3{margin:0 0 12px;font-size:15px}.card-count p{font-size:32px;font-weight:800;margin:0}
+.c1{background:linear-gradient(135deg,#2563eb,#06b6d4)}
+.c2{background:linear-gradient(135deg,#7c3aed,#ec4899)}
+.c3{background:linear-gradient(135deg,#16a34a,#22c55e)}
+.c4{background:linear-gradient(135deg,#f97316,#ef4444)}
+.section{display:none}.section.active{display:block}
+.panel{background:white;border-radius:22px;padding:22px;margin-bottom:22px;box-shadow:0 10px 26px rgba(0,0,0,.08)}
+.panel h2{margin-top:0;color:#4c1d95}
+.form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+input{padding:12px;border:1px solid #ddd6fe;border-radius:12px;outline:none}
+input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px #ede9fe}
+.save{padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#db2777);color:white;font-weight:700;cursor:pointer}
+.clear{padding:12px;border:none;border-radius:12px;background:#64748b;color:white;font-weight:700;cursor:pointer}
+.table-wrap{overflow:auto}
+table{width:100%;min-width:900px;border-collapse:collapse}
+th{background:#7e22ce;color:white;padding:12px;text-align:left}
+td{padding:11px;border-bottom:1px solid #e5e7eb}
+tr:hover{background:#f5f3ff}
+.action-btn{padding:7px 11px;margin:2px;border:none;border-radius:8px;cursor:pointer;color:white}
+.edit{background:#2563eb}.delete{background:#dc2626}
+.msg{margin-top:10px;font-weight:700}
+.success{color:#166534}.error{color:#b91c1c}
+@media(max-width:900px){.sidebar{display:none}.main{margin-left:0;width:100%}.cards,.form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+
+<body>
+<div class="app">
+<aside class="sidebar">
+<div class="logo">🫀 Organ<span>Care</span></div>
+<div class="nav" id="nav"></div>
+</aside>
+
+<main class="main">
+<div class="top">
+<h1>Organ Care Management System</h1>
+<div class="badge">● Backend Connected</div>
+</div>
+
+<section id="dashboard" class="section active">
+<div class="cards">
+<div class="card-count c1"><h3>Total Donors</h3><p id="donorCount">0</p></div>
+<div class="card-count c2"><h3>Total Recipients</h3><p id="recipientCount">0</p></div>
+<div class="card-count c3"><h3>Total Organs</h3><p id="organCount">0</p></div>
+<div class="card-count c4"><h3>Total Alerts</h3><p id="alertCount">0</p></div>
+</div>
+<div class="panel">
+<h2>📌 Project Overview</h2>
+<p>This is a full-stack Organ Care Management System using HTML, CSS, JavaScript, Spring Boot REST APIs, JPA, and MySQL. It supports add, save, edit, update, delete, and view operations for all project modules.</p>
+</div>
+</section>
+
+<div id="pages"></div>
+</main>
+</div>
+
+<script>
+const BASE = "http://localhost:8080/api";
+
+const modules = [
+{ id:"donors", icon:"🧑", title:"Donors", api:"/donors", idField:"donorId",
+fields:["donorId","name","age","gender","bloodGroup","contactNo","medicalHistory","consentStatus"] },
+
+{ id:"recipients", icon:"🛏", title:"Recipients", api:"/recipients", idField:"recipientId",
+fields:["recipientId","name","age","gender","bloodGroup","organRequired","urgencyLevel","notes"] },
+
+{ id:"organs", icon:"🫀", title:"Organs", api:"/organs", idField:"organId",
+fields:["organId","organName","bloodGroup","availabilityStatus","donorId","storageLocationId","expiryDate","notes"] },
+
+{ id:"hospitals", icon:"🏥", title:"Hospitals", api:"/hospitals", idField:"hospitalId",
+fields:["hospitalId","hospitalName","location","contactNo","departments"] },
+
+{ id:"staff", icon:"👨‍⚕️", title:"Staff", api:"/staff", idField:"staffId",
+fields:["staffId","name","role","contactNo","assignedHospitalId"] },
+
+{ id:"storage", icon:"🧊", title:"Storage Locations", api:"/storage-locations", idField:"storageLocationId",
+fields:["storageLocationId","locationName","temperatureControl","capacity","responsibleStaffId"] },
+
+{ id:"testing", icon:"🧪", title:"Organ Testing", api:"/organ-testing", idField:"testId",
+fields:["testId","organId","testType","testDate","testResult","testedBy"] },
+
+{ id:"transport", icon:"🚑", title:"Organ Transport", api:"/organ-transport", idField:"transportId",
+fields:["transportId","organId","fromLocation","toLocation","transportDateTime","transportMode","temperatureMaintained","responsibleStaffId"] },
+
+{ id:"consent", icon:"✅", title:"Family Consent", api:"/family-consent", idField:"consentId",
+fields:["consentId","donorId","familyMemberName","relationshipToDonor","consentDate","contactNo","consentStatus"] },
+
+{ id:"insurance", icon:"🛡", title:"Insurance", api:"/insurance", idField:"insuranceId",
+fields:["insuranceId","recipientId","insuranceCompany","policyNumber","coverageAmount","expiryDate","contactNo"] },
+
+{ id:"transplants", icon:"⚕️", title:"Transplants", api:"/transplants", idField:"transplantId",
+fields:["transplantId","donorId","recipientId","organId","hospitalId","surgeonId","transplantDate","status"] },
+
+{ id:"legal", icon:"📄", title:"Legal Documents", api:"/legal-documents", idField:"documentId",
+fields:["documentId","donorId","recipientId","documentType","issueDate","expiryDate","authorizedBy"] },
+
+{ id:"followups", icon:"📅", title:"Follow Ups", api:"/follow-ups", idField:"followUpId",
+fields:["followUpId","recipientId","organId","checkupDate","healthStatus","medications","notes"] },
+
+{ id:"alerts", icon:"🔔", title:"Alerts", api:"/alerts", idField:"alertId",
+fields:["alertId","recipientId","staffId","organId","alertType","alertDateTime","status"] }
+];
+
+const state = {};
+
+function label(x){
+  return x.replace(/([A-Z])/g," $1").replace(/^./,s=>s.toUpperCase());
+}
+
+function buildUI(){
+  nav.innerHTML = `<button class="active" onclick="showSection('dashboard',this)">🏠 Dashboard</button>`;
+  modules.forEach(m=>{
+    nav.innerHTML += `<button onclick="showSection('${m.id}',this)">${m.icon} ${m.title}</button>`;
+    pages.innerHTML += `
+    <section id="${m.id}" class="section">
+      <div class="panel">
+        <h2>➕ Add / Update ${m.title}</h2>
+        <form id="${m.id}Form" class="form-grid">
+          ${m.fields.map(f=>`<input id="${m.id}_${f}" placeholder="${label(f)}${f===m.idField?' *':''}" ${f===m.idField?'required':''}>`).join("")}
+          <button class="save" type="submit">Save ${m.title}</button>
+          <button class="clear" type="button" onclick="clearForm('${m.id}')">Clear</button>
+        </form>
+        <div id="${m.id}Msg" class="msg"></div>
+      </div>
+      <div class="panel">
+        <h2>📋 ${m.title} Records</h2>
+        <div class="table-wrap"><table id="${m.id}Table"></table></div>
+      </div>
+    </section>`;
+  });
+}
+
+function showSection(id,btn){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+function clearForm(id){
+  document.getElementById(id+"Form").reset();
+}
+
+function message(id,text,type){
+  const el = document.getElementById(id+"Msg");
+  el.className = "msg " + type;
+  el.innerText = text;
+}
+
+async function apiGet(m){
+  const res = await fetch(BASE + m.api);
+  if(!res.ok) throw new Error(m.title + " GET failed");
+  return await res.json();
+}
+
+async function apiSave(m,obj){
+  const res = await fetch(BASE + m.api,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(obj)
+  });
+  return res.ok;
+}
+
+async function apiDelete(m,id){
+  const res = await fetch(BASE + m.api + "/" + id,{method:"DELETE"});
+  return res.ok;
+}
+
+function fillForm(m,row){
+  m.fields.forEach(f=>{
+    document.getElementById(m.id+"_"+f).value = row[f] ?? "";
+  });
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function makeTable(m,data){
+  const table = document.getElementById(m.id+"Table");
+  if(!data || data.length===0){
+    table.innerHTML = `<tr><td>No records found</td></tr>`;
+    return;
+  }
+
+  let html = "<thead><tr>";
+  m.fields.forEach(f=>html += `<th>${label(f)}</th>`);
+  html += "<th>Actions</th></tr></thead><tbody>";
+
+  data.forEach((row,i)=>{
+    html += "<tr>";
+    m.fields.forEach(f=>html += `<td>${row[f] ?? ""}</td>`);
+    html += `<td>
+      <button class="action-btn edit" onclick="editRow('${m.id}',${i})">Edit</button>
+      <button class="action-btn delete" onclick="deleteRow('${m.id}','${row[m.idField]}')">Delete</button>
+    </td>`;
+    html += "</tr>";
+  });
+
+  html += "</tbody>";
+  table.innerHTML = html;
+}
+
+async function loadModule(m){
+  try{
+    const data = await apiGet(m);
+    state[m.id] = data;
+    makeTable(m,data);
+
+    if(m.id==="donors") donorCount.innerText = data.length;
+    if(m.id==="recipients") recipientCount.innerText = data.length;
+    if(m.id==="organs") organCount.innerText = data.length;
+    if(m.id==="alerts") alertCount.innerText = data.length;
+  }catch(e){
+    console.error(e);
+    makeTable(m,[]);
+  }
+}
+
+async function loadAll(){
+  for(const m of modules){
+    await loadModule(m);
+  }
+}
+
+function editRow(moduleId,index){
+  const m = modules.find(x=>x.id===moduleId);
+  fillForm(m,state[moduleId][index]);
+}
+
+async function deleteRow(moduleId,id){
+  const m = modules.find(x=>x.id===moduleId);
+  if(!confirm("Delete this record?")) return;
+
+  const ok = await apiDelete(m,id);
+  if(ok){
+    message(m.id,"Deleted successfully","success");
+    await loadModule(m);
+  }else{
+    message(m.id,"Delete failed. This record may be used in another table.","error");
+  }
+}
+
+function attachForms(){
+  modules.forEach(m=>{
+    document.getElementById(m.id+"Form").addEventListener("submit",async e=>{
+      e.preventDefault();
+
+      const obj = {};
+      m.fields.forEach(f=>{
+        obj[f] = document.getElementById(m.id+"_"+f).value;
+      });
+
+      const ok = await apiSave(m,obj);
+
+      if(ok){
+        message(m.id,"Saved successfully","success");
+        e.target.reset();
+        await loadModule(m);
+      }else{
+        message(m.id,"Save failed. Check duplicate ID/contact or foreign key IDs.","error");
+      }
+    });
+  });
+}
+
+buildUI();
+attachForms();
+loadAll();
+</script>
+
+</body>
+</html>
